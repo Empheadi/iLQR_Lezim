@@ -93,7 +93,7 @@ for k = 1:N_sim
         % ====== 调用 AL-iLQR ======
         [controller, total_costs, info] = al_iLQR( ...
             x_cur, u_guess, ilqr_iters, regularizer, ...
-            dyn, costfn_k, term_costfn_k, con_params, al_opts, false);
+            dyn, costfn_k, term_costfn_k, con_params, al_opts, true);
 
         ddp_cost_history{replan_id} = total_costs;
         planned_states(replan_id, :, :)  = controller.states;

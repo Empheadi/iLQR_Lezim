@@ -67,7 +67,7 @@ for outer = 1:al_iters
     % 变化率约束由执行阶段（run_iLQR.m）的硬限幅单独保证，不在此处处理。
     [ctrl_out, costs_inner, info_inner] = iLQR( ...
         ic, u_current, ilqr_iters, regularizer, ...
-        dyn, al_costfn_cells, al_term_costfn, false);  % <-- 关键：无 rate_cfg
+        dyn, al_costfn_cells, al_term_costfn, verbose);  % forward verbose flag
 
     xs = ctrl_out.states;
     us = ctrl_out.controls;
