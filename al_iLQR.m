@@ -62,12 +62,17 @@ for outer = 1:al_iters
         term_costfn, lambda_term, repmat(mu_state, nc_term, 1), con_params);
 
     % === 3. 调用 iLQR ===
-    % [修复] 不传 rate_cfg：保证 back_pass 与 fwd_pass 描述同一代价函数，
-    % 使线搜索能找到真正的下降方向。
-    % 变化率约束由执行阶段（run_iLQR.m）的硬限幅单独保证，不在此处处理。
+    % 传入控制边界（与 AL 约束一致），但不传变化率字段 → fwd_pass 只做边界限幅，不做变化率限幅。
+    % 这保证 fwd_pass 的控制范围与 AL 罚项描述的可行域一致，
+    % 消除 backward pass / forward pass 之间的模型—现实不匹配。
+    bounds_cfg = struct( ...
+        'alpha_min', con_params.alpha_min, 'alpha_max', con_params.alpha_max, ...
+        'mu_min',    con_params.mu_min,    'mu_max',    con_params.mu_max, ...
+        'tss_min',   con_params.tss_min,   'tss_max',   con_params.tss_max);
+
     [ctrl_out, costs_inner, info_inner] = iLQR( ...
         ic, u_current, ilqr_iters, regularizer, ...
-        dyn, al_costfn_cells, al_term_costfn, verbose);  % forward verbose flag
+        dyn, al_costfn_cells, al_term_costfn, verbose, bounds_cfg);
 
     xs = ctrl_out.states;
     us = ctrl_out.controls;
