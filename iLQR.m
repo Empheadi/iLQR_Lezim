@@ -56,8 +56,9 @@ for i = 1:iters
 
     [controller_bp, dV] = back_pass(xs, us, dyn, costfn, term_costfn, rho);
 
-    accepted  = false;
-    best_cost = inf;
+    accepted   = false;
+    best_cost  = inf;
+    best_alpha = 0;
 
     for j = 1:length(alpha_list)
         alpha = alpha_list(j);
@@ -72,6 +73,7 @@ for i = 1:iters
 
         if J_try < best_cost
             best_cost       = J_try;
+            best_alpha      = alpha;
             best_xs         = xs_try;
             best_us         = us_try;
             best_J_stage    = J_try_stage;
@@ -87,8 +89,26 @@ for i = 1:iters
     end
 
     % Fallback: if Armijo not met but some alpha reduced cost, accept best
+    fallback = false;
     if ~accepted && best_cost < J_curr
         accepted = true;
+        fallback = true;
+    end
+
+    % ---- Per-iteration diagnostic output ----
+    if verbose
+        if accepted
+            if fallback
+                fprintf('  iLQR %3d/%d | cost=%.4e | rho=%.2e | alpha=%.3f (fallback) | dV=[%.2e, %.2e]\n', ...
+                    i, iters, best_cost, rho, best_alpha, dV(1), dV(2));
+            else
+                fprintf('  iLQR %3d/%d | cost=%.4e | rho=%.2e | alpha=%.3f | dV=[%.2e, %.2e]\n', ...
+                    i, iters, best_cost, rho, best_alpha, dV(1), dV(2));
+            end
+        else
+            fprintf('  iLQR %3d/%d | cost=%.4e | rho=%.2e | REJECTED (best=%.4e) | dV=[%.2e, %.2e]\n', ...
+                i, iters, J_curr, rho, best_cost, dV(1), dV(2));
+        end
     end
 
     if accepted
