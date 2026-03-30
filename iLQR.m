@@ -25,6 +25,14 @@ total_costs = nan(iters, 1);
 rel_tol = 1e-6;
 abs_tol = 1e-8;
 
+% Armijo line search parameter
+c1 = 1e-4;
+
+% Regularization control (gradual increase/decrease, no hard reset)
+rho_factor = 10;
+rho_min    = 1e-6;
+rho_max    = 1e8;
+
 % 初始 forward rollout（带硬限幅）
 [xs, us, J_stage] = fwd_pass(ic, controller, dyn, costfn, term_costfn, rate_cfg);
 J_curr = sum(J_stage);
@@ -46,7 +54,7 @@ info.rho            = rho;
 for i = 1:iters
     J_old = J_curr;
 
-    controller_bp = back_pass(xs, us, dyn, costfn, term_costfn, rho);
+    [controller_bp, dV] = back_pass(xs, us, dyn, costfn, term_costfn, rho);
 
     accepted  = false;
     best_cost = inf;
@@ -70,10 +78,17 @@ for i = 1:iters
             best_controller = ctrl_try;
         end
 
-        if J_try < J_curr
+        % Armijo sufficient decrease condition
+        expected = -alpha * dV(1) - alpha^2 * dV(2);
+        if expected > 0 && (J_curr - J_try) > c1 * expected
             accepted = true;
             break;
         end
+    end
+
+    % Fallback: if Armijo not met but some alpha reduced cost, accept best
+    if ~accepted && best_cost < J_curr
+        accepted = true;
     end
 
     if accepted
@@ -86,7 +101,7 @@ for i = 1:iters
         controller.states   = xs;
         controller.controls = us;
 
-        rho = regularizer;
+        rho = max(rho / rho_factor, rho_min);
         total_costs(i) = J_curr;
 
         abs_improve = abs(J_old - J_curr);
@@ -106,10 +121,10 @@ for i = 1:iters
         end
 
     else
-        rho = min(rho * 10, 1e8);
+        rho = min(rho * rho_factor, rho_max);
         total_costs(i) = J_curr;
 
-        if rho >= 1e8
+        if rho >= rho_max
             info.status         = 'regularization_limit';
             info.iterations_run = i;
             info.final_cost     = J_curr;

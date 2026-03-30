@@ -1,4 +1,4 @@
-function [controller] = back_pass(states, controls, dyn, costfn, term_costfn, regularizer)
+function [controller, dV] = back_pass(states, controls, dyn, costfn, term_costfn, regularizer)
 % iLQR backward pass
 % costfn: 函数句柄 或 cell 数组（AL模式下每步不同）
 %
@@ -25,6 +25,8 @@ Vxx = project_psd(Vxx);
 rho = regularizer;
 rho_scale = 10;
 rho_max = 1e10;
+
+dV = [0, 0];   % expected cost reduction: dV(1) = sum(k'*Qu), dV(2) = 0.5*sum(k'*Quu*k)
 
 use_cell_cost = iscell(costfn);
 
@@ -73,6 +75,10 @@ for t = horizon:-1:1
     controller.k(t, :) = k';
     controller.K(t, :, :) = reshape(K, [1, m, n]);
 
+    % Accumulate expected cost reduction (unregularized Qu, Quu)
+    dV(1) = dV(1) + k' * Qu;
+    dV(2) = dV(2) + 0.5 * k' * Quu * k;
+
     Vx  = Qx  + K' * Quu * k + K' * Qu + Qxu * k;
     Vxx = Qxx + K' * Quu * K + K' * Qux + Qxu * K;
     Vxx = 0.5 * (Vxx + Vxx');
@@ -83,7 +89,7 @@ for t = horizon:-1:1
     % 导致 k≈0，线搜索失败，iLQR 输出 regularization_limit。
     Vxx = project_psd(Vxx);
 
-    rho = max(rho_local / rho_scale, 1e-9);
+    rho = max(rho_local / 2, 1e-9);
 end
 
 end
