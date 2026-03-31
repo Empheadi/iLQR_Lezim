@@ -13,7 +13,20 @@ function [states, controls, costs] = fwd_pass( ...
 % costfn: 函数句柄 或 cell 数组
 
 if nargin < 6, rate_cfg = []; end
-has_rate = ~isempty(rate_cfg);
+
+% ---- 控制边界：从 rate_cfg 获取（若有），否则使用宽松安全默认值 ----
+if ~isempty(rate_cfg) && isfield(rate_cfg, 'alpha_min')
+    a_lo = rate_cfg.alpha_min;   a_hi = rate_cfg.alpha_max;
+    m_lo = rate_cfg.mu_min;      m_hi = rate_cfg.mu_max;
+    t_lo = rate_cfg.tss_min;     t_hi = rate_cfg.tss_max;
+else
+    a_lo = -20*pi/180;  a_hi = 30*pi/180;
+    m_lo = -45*pi/180;  m_hi = 45*pi/180;
+    t_lo = 0;           t_hi = 1;
+end
+
+% ---- 变化率限幅：仅当 rate_cfg 包含变化率字段时启用 ----
+has_rate = ~isempty(rate_cfg) && isfield(rate_cfg, 'd_alpha_max');
 
 N = size(controller.k, 1);
 n = size(x0, 1);
@@ -25,17 +38,6 @@ costs    = zeros(N + 1, 1);
 states(1,:) = x0(:)';
 
 use_cell_cost = iscell(costfn);
-
-% 控制边界（从 rate_cfg 获取或使用宽松默认值）
-if has_rate
-    a_lo = rate_cfg.alpha_min;   a_hi = rate_cfg.alpha_max;
-    m_lo = rate_cfg.mu_min;      m_hi = rate_cfg.mu_max;
-    t_lo = rate_cfg.tss_min;     t_hi = rate_cfg.tss_max;
-else
-    a_lo = -20*pi/180;  a_hi = 30*pi/180;
-    m_lo = -45*pi/180;  m_hi = 45*pi/180;
-    t_lo = 0;           t_hi = 1;
-end
 
 for t = 1:N
 

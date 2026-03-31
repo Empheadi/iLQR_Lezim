@@ -88,9 +88,10 @@ for i = 1:iters
         end
     end
 
-    % Fallback: if Armijo not met but some alpha reduced cost, accept best
+    % Fallback: accept best alpha if cost didn't increase much
+    % (allows escaping stuck states when quadratic model is inaccurate)
     fallback = false;
-    if ~accepted && best_cost < J_curr
+    if ~accepted && best_cost < J_curr * (1 + 5e-3)
         accepted = true;
         fallback = true;
     end
